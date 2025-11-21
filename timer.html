@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lo-Fi 視覺化時鐘番茄鐘</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Quicksand', 'sans-serif'],
+                    },
+                    colors: {
+                        lofi: {
+                            bg: '#F3E8FF',
+                            card: '#FFFBF0',
+                            red: '#F87171',
+                            green: '#6EE7B7',
+                            blue: '#93C5FD', // 自訂模式顏色
+                            text: '#4A5568'
+                        }
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .base-timer__circle { fill: none; stroke: none; }
+        .base-timer__path-remaining {
+            stroke-width: 50px;
+            stroke-linecap: butt;
+            transform: rotate(90deg);
+            transform-origin: center;
+            transition: 1s linear all;
+            fill: none;
+        }
+        /* 讓 SVG 像時鐘一樣逆時針減少 */
+        .base-timer__svg { transform: scaleX(-1); }
+        
+        .floating { animation: float 6s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* 隱藏數字輸入框的上下箭頭 (Chrome/Safari) */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    </style>
+</head>
+<body class="bg-lofi-bg h-screen w-screen flex items-center justify-center transition-colors duration-500 overflow-hidden relative">
+
+    <div class="absolute top-0 left-0 w-64 h-64 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+    <div class="absolute top-0 right-0 w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-64 h-64 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+
+    <div class="relative w-full max-w-md p-6">
+        <div class="relative bg-lofi-card/90 backdrop-blur-sm rounded-[40px] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] p-8 text-center border-4 border-white floating transition-all duration-300" id="main-card">
+            
+            <h1 class="text-2xl font-bold text-lofi-text mb-6 tracking-wide">Visual Timer</h1>
+
+            <div class="flex flex-wrap justify-center gap-2 mb-8 bg-white/50 p-2 rounded-2xl w-fit mx-auto">
+                <button onclick="setMode('focus')" id="btn-focus" class="px-4 py-2 rounded-xl font-bold text-sm transition-all duration-300 bg-lofi-red text-white shadow-md">
+                    專注
+                </button>
+                <button onclick="setMode('break')" id="btn-break" class="px-4 py-2 rounded-xl font-bold text-sm transition-all duration-300 text-lofi-text hover:bg-green-100">
+                    休息
+                </button>
+                <button onclick="toggleCustomInput()" id="btn-custom" class="px-4 py-2 rounded-xl font-bold text-sm transition-all duration-300 text-lofi-text hover:bg-blue-100">
+                    自訂
+                </button>
+            </div>
+
+            <div id="custom-input-area" class="hidden mb-6 animate-fade-in-down">
+                <div class="flex items-center justify-center gap-2">
+                    <input type="number" id="custom-minutes" placeholder="分鐘" class="w-20 p-2 text-center text-xl font-bold text-lofi-text bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:border-lofi-blue" min="1" max="60" value="45">
+                    <button onclick="applyCustomTime()" class="bg-lofi-blue text-white font-bold py-2 px-4 rounded-xl hover:brightness-110 shadow-sm">
+                        設定
+                    </button>
+                </div>
+            </div>
+
+            <div class="relative w-64 h-64 mx-auto mb-10">
+                <svg class="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 100 100">
+                    <g transform="translate(50,50)">
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(0)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(30)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(60)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(90)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(120)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(150)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(180)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(210)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(240)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(270)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(300)" fill="#4A5568" />
+                        <rect x="-1" y="-45" width="2" height="4" transform="rotate(330)" fill="#4A5568" />
+                    </g>
+                </svg>
+
+                <svg class="base-timer__svg w-full h-full" viewBox="0 0 100 100">
+                    <g class="base-timer__circle">
+                        <circle class="text-gray-100 stroke-current" stroke-width="50" cx="50" cy="50" r="25"></circle>
+                        <path
+                            id="base-timer-path-remaining"
+                            stroke-dasharray="0 157" 
+                            class="base-timer__path-remaining text-lofi-red stroke-current opacity-90"
+                            d="
+                            M 50, 50
+                            m -25, 0
+                            a 25,25 0 1,0 50,0
+                            a 25,25 0 1,0 -50,0
+                            "
+                        ></path>
+                    </g>
+                </svg>
+                
+                <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
+                    <span id="timer-label" class="text-5xl font-bold text-lofi-text tracking-widest font-sans drop-shadow-sm bg-white/40 backdrop-blur-sm px-4 py-2 rounded-2xl border border-white/50">
+                        25:00
+                    </span>
+                    <span id="status-text" class="text-sm text-gray-500 mt-2 font-semibold opacity-0 transition-opacity duration-300 bg-white/60 px-2 py-1 rounded-lg backdrop-blur-sm">
+                        時間到囉！
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex justify-center items-center gap-6">
+                <button onclick="toggleTimer()" id="start-pause-btn" class="w-16 h-16 bg-lofi-red rounded-full text-white shadow-lg shadow-red-200 flex items-center justify-center transition-all hover:scale-110 active:scale-95 hover:brightness-110 group">
+                    <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <svg id="icon-pause" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+
+                <button onclick="resetTimer()" id="reset-btn" class="w-12 h-12 bg-white border-2 border-gray-100 rounded-full text-gray-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 hover:border-lofi-red hover:text-lofi-red">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="text-center mt-6">
+             <button onclick="playBellSound()" class="text-lofi-text/40 text-xs hover:text-lofi-text transition-colors">
+                🔊 測試音效
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定 ---
+        const FULL_DASH_ARRAY = 157; // 2 * PI * 25
+        const SECONDS_IN_HOUR = 3600; // 60分鐘的秒數 (時鐘基準)
+        
+        // 預設時間
+        let timeLimit = 25 * 60;
+        let timePassed = 0;
+        let timeLeft = timeLimit;
+        let timerInterval = null;
+        let isRunning = false;
+        let currentMode = 'focus'; 
+        let currentColorClass = 'text-lofi-red';
+
+        // --- DOM ---
+        const timerLabel = document.getElementById("timer-label");
+        const circlePath = document.getElementById("base-timer-path-remaining");
+        const btnFocus = document.getElementById("btn-focus");
+        const btnBreak = document.getElementById("btn-break");
+        const btnCustom = document.getElementById("btn-custom");
+        const customInputArea = document.getElementById("custom-input-area");
+        const customMinutesInput = document.getElementById("custom-minutes");
+        const iconPlay = document.getElementById("icon-play");
+        const iconPause = document.getElementById("icon-pause");
+        const statusText = document.getElementById("status-text");
+        const startPauseBtn = document.getElementById("start-pause-btn");
+        const resetBtn = document.getElementById("reset-btn");
+
+        // --- 初始化 ---
+        updateDisplay();
+        setCircleDasharray();
+
+        // --- 功能: 自訂時間 ---
+        function toggleCustomInput() {
+            // 切換輸入框顯示/隱藏
+            customInputArea.classList.toggle('hidden');
+            // 如果顯示，將焦點移入輸入框
+            if (!customInputArea.classList.contains('hidden')) {
+                customMinutesInput.focus();
+            }
+        }
+
+        function applyCustomTime() {
+            let mins = parseInt(customMinutesInput.value);
+            if (isNaN(mins) || mins <= 0) mins = 1;
+            // 允許超過60，但在視覺上60是滿圈
+            
+            setMode('custom', mins * 60);
+            customInputArea.classList.add('hidden'); // 設定完隱藏
+        }
+        
+        // 按下 Enter 也可以設定
+        customMinutesInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                applyCustomTime();
+            }
+        });
+
+        // --- 核心邏輯 ---
+        function setMode(mode, customSeconds = 0) {
+            currentMode = mode;
+            resetTimer();
+
+            // 重置所有按鈕樣式
+            const buttons = [btnFocus, btnBreak, btnCustom];
+            buttons.forEach(btn => {
+                btn.className = "px-4 py-2 rounded-xl font-bold text-sm transition-all duration-300 text-lofi-text hover:bg-gray-100";
+            });
+
+            // 設定個別樣式與顏色
+            if (mode === 'focus') {
+                timeLimit = 25 * 60;
+                setTheme('red', btnFocus);
+            } else if (mode === 'break') {
+                timeLimit = 5 * 60;
+                setTheme('green', btnBreak);
+            } else if (mode === 'custom') {
+                timeLimit = customSeconds;
+                setTheme('blue', btnCustom);
+            }
+
+            timeLeft = timeLimit;
+            updateDisplay();
+            setCircleDasharray();
+        }
+
+        function setTheme(colorName, activeBtn) {
+            // 定義 Tailwind 顏色類別
+            const colorMap = {
+                'red': { bg: 'bg-lofi-red', text: 'text-lofi-red', hover: 'hover:text-lofi-red', border: 'hover:border-lofi-red' },
+                'green': { bg: 'bg-lofi-green', text: 'text-lofi-green', hover: 'hover:text-lofi-green', border: 'hover:border-lofi-green' },
+                'blue': { bg: 'bg-lofi-blue', text: 'text-lofi-blue', hover: 'hover:text-lofi-blue', border: 'hover:border-lofi-blue' }
+            };
+
+            const theme = colorMap[colorName];
+            currentColorClass = theme.text;
+
+            // 按鈕啟用樣式
+            activeBtn.classList.remove('text-lofi-text', 'hover:bg-gray-100');
+            activeBtn.classList.add(theme.bg, 'text-white', 'shadow-md');
+
+            // 圓餅圖顏色
+            circlePath.className = `base-timer__path-remaining stroke-current opacity-90 ${theme.text}`;
+
+            // Play 按鈕顏色
+            startPauseBtn.className = `w-16 h-16 rounded-full text-white shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 hover:brightness-110 group ${theme.bg}`;
+            
+            // Reset 按鈕 Hover 顏色
+            resetBtn.className = `w-12 h-12 bg-white border-2 border-gray-100 rounded-full text-gray-400 flex items-center justify-center transition-all hover:scale-110 active:scale-95 ${theme.border} ${theme.hover}`;
+        }
+
+        function toggleTimer() {
+            if (isRunning) pauseTimer();
+            else startTimer();
+        }
+
+        function startTimer() {
+            if (timeLeft <= 0) return;
+            isRunning = true;
+            updateControlsUI();
+            statusText.style.opacity = "0"; 
+
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) { new AudioContext().resume(); }
+
+            timerInterval = setInterval(() => {
+                timePassed += 1;
+                timeLeft = timeLimit - timePassed;
+                
+                updateDisplay();
+                setCircleDasharray();
+
+                if (timeLeft <= 0) {
+                    onTimesUp();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            updateControlsUI();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timePassed = 0;
+            timeLeft = timeLimit;
+            statusText.style.opacity = "0";
+            
+            circlePath.style.transition = 'none';
+            setCircleDasharray();
+            setTimeout(() => { circlePath.style.transition = '1s linear all'; }, 100);
+            updateDisplay();
+        }
+
+        function onTimesUp() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            updateControlsUI();
+            statusText.textContent = "時間到囉！";
+            statusText.style.opacity = "1";
+            playBellSound();
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            if (seconds < 10) seconds = `0${seconds}`;
+            timerLabel.innerHTML = `${minutes}:${seconds}`;
+            document.title = `${minutes}:${seconds} - Timer`;
+        }
+
+        function updateControlsUI() {
+            if (isRunning) {
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+            }
+        }
+
+        // --- 視覺化核心 (Visual Timer Logic) ---
+        function setCircleDasharray() {
+            // 這裡的邏輯改變了：
+            // 分母不再是 timeLimit，而是 SECONDS_IN_HOUR (3600秒)
+            // 這樣圓餅的大小就會對應到「時鐘上的分鐘數」
+            
+            let timeFraction = timeLeft / SECONDS_IN_HOUR;
+            
+            // 如果超過 60 分鐘，顯示滿圈 (1.0)
+            if (timeFraction > 1) timeFraction = 1;
+            
+            const circleDasharray = `${(
+                timeFraction * FULL_DASH_ARRAY
+            ).toFixed(0)} 157`;
+            
+            circlePath.setAttribute("stroke-dasharray", circleDasharray);
+        }
+
+        // --- 音效 ---
+        function playBellSound() {
+            try {
+// 這是超級瑪利歐吃金幣風格的音效 (Base64編碼)
+    const audioSrc = "data:audio/mp3;base64,//uQxAAAAAAAAAAAAASW5mbwAAAA8AAAAOAAALqAAZGhouLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u//uQxAAACkQNgAAABAAABAAAAAAAAAAABLf/l5j/8yM/g/84M/w//uQxAEACcQNfAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxAcACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxAkACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxAsACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxBcACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxCMACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxCsACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxDgACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxEMACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxFkACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w//uQxGcACWQNXAAABAAABAAAAAAAAAAABUnf/l5j/8yM/g/84M/w";
+    
+    // 注意：上面的字串只是示意(因為太長了)，請使用下方提供的完整功能：
+    
+    // 由於 Base64 太長，我使用簡單的合成音模仿「叮咚」的高音版本代替，
+    // 如果您想要真正的 mp3，請依照上方步驟 B 操作。
+    
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    
+    // 第一聲 Ding
+    const osc1 = ctx.createOscillator();
+    const g1 = ctx.createGain();
+    osc1.connect(g1);
+    g1.connect(ctx.destination);
+    osc1.frequency.setValueAtTime(1046.50, ctx.currentTime); // C6
+    g1.gain.setValueAtTime(0.1, ctx.currentTime);
+    g1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc1.start();
+    osc1.stop(ctx.currentTime + 0.1);
+
+    // 第二聲 Dong (稍微延遲)
+    setTimeout(() => {
+        const osc2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        osc2.connect(g2);
+        g2.connect(ctx.destination);
+        osc2.frequency.setValueAtTime(1318.51, ctx.currentTime); // E6
+        g2.gain.setValueAtTime(0.1, ctx.currentTime);
+        g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc2.start();
+        osc2.stop(ctx.currentTime + 0.4);
+    }, 100);
+            } catch (e) { console.error(e); }
+        }
+    </script>
+</body>
+</html>
